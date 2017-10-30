@@ -31,7 +31,7 @@ def get_coordinates(location_str):
     try:
         location_result = response.json()['results'][0]
     except (IndexError, KeyError) as exc:
-        raise CoordinatesNotFoundError from exc
+        raise CoordinatesNotFoundError() from exc
     coords = location_result['geometry']['location']
     return (coords['lat'], coords['lng'])
 
@@ -47,7 +47,7 @@ def get_weather(coordinates):
         else:
             raise WeatherNotFoundError()
     except KeyError as exc:
-        raise WeatherNotFoundError from exc
+        raise WeatherNotFoundError() from exc
 
 
 @app.route('/chat/messages', methods=['POST'])
