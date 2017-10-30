@@ -9,7 +9,17 @@ app = Flask(__name__)
 app.config.from_pyfile('config.py')
 
 
+class LocationNotFoundError(Exception): pass
+
 class CoordinatesNotFoundError(Exception): pass
+
+
+def location_from_query(query):
+    for regex in [r'weather in ([\w\s-]+)', r'([\w\s-]+) weather']:
+        matches = re.findall(regex, query, re.IGNORECASE)
+        if matches:
+            return matches[0]
+    raise LocationNotFoundError()
 
 
 def get_coordinates(location_str):
@@ -27,21 +37,17 @@ def get_coordinates(location_str):
 @app.route('/chat/messages', methods=['POST'])
 def handle_message():
     if request.form['action'] == 'message':
-        for regex in [r'weather in ([\w\s-]+)', r'([\w\s-]+) weather']:
-            matches = re.findall(regex, request.form['text'], re.IGNORECASE)
-            if matches:
-                location_str = matches[0]
-                try:
-                    coords = get_coordinates(location_str)
-                except CoordinatesNotFoundError:
-                    message_text = f'Location “{location_str}” not found.'
-                else:
-                    message_text = str(coords)
-                break
-        else:  # if location not found
+        try:
+            location_str = location_from_query(request.form['text'])
+            coords = get_coordinates(location_str)
+        except LocationNotFoundError:
             message_text = ('I didn\'t understand that. Enter something like ' +
                             '“what\'s the weather in <Location>” or ' +
                             '“weather in <Location>” or “<Location> weather”.')
+        except CoordinatesNotFoundError:
+            message_text = f'Location “{location_str}” not found.'
+        else:
+            message_text = str(coords)
     elif request.form['action'] == 'join':
         message_text = f'Hi {request.form["name"]}'
     else:
