@@ -70,7 +70,8 @@ def handle_message():
             summary = current_weather['summary']
             message_text = f'{temperature}°F. {summary}.'
     elif request.form['action'] == 'join':
-        message_text = f'Hello, {request.form["name"]}!'
+        message_text = (f'Hello, {request.form["name"]}! ' +
+                        'Ask me about the weather in your city.')
     else:
         message_text = 'I don\'t know how to handle this situation.'
     response = jsonify(messages=[{'type': 'text', 'text': message_text}])
