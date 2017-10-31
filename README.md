@@ -1,4 +1,4 @@
-This is my solution to the Hipmunk Lessenger Coding Challenge.
+This is my solution to the Hipmunk Lessenger Coding Challenge. It requires Python 3.6 or later.
 
 **To install**:
 * Clone this repository.
