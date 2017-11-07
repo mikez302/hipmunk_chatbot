@@ -18,7 +18,7 @@ class WeatherNotFoundError(Exception): pass
 
 
 def location_from_query(query):
-    for regex in [r'weather in ([\w\s-]+)', r'([\w\s-]+) weather']:
+    for regex in [r'weather (?:tomorrow )?in ([\w\s-]+)', r'([\w\s-]+) weather']:
         matches = re.findall(regex, query, re.IGNORECASE)
         if matches:
             return matches[0]
