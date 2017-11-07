@@ -29,7 +29,7 @@ def day_from_query(query):
     return 'tomorrow' if 'tomorrow' in query.casefold() else 'today'
 
 
-def get_coordinates(location_str):
+def get_location_data(location_str):
     response = requests.get(
         'https://maps.googleapis.com/maps/api/geocode/json',
         params={'address': location_str, 'key': app.config['GOOGLE_GEOCODING_API_KEY']})
@@ -38,7 +38,7 @@ def get_coordinates(location_str):
     except (IndexError, KeyError) as exc:
         raise CoordinatesNotFoundError() from exc
     coords = location_result['geometry']['location']
-    return (coords['lat'], coords['lng'])
+    return ((coords['lat'], coords['lng']), location_result['formatted_address'])
 
 
 def get_weather(coordinates, day_str):
@@ -74,7 +74,7 @@ def handle_message():
         try:
             location_str = location_from_query(request.form['text'])
             day_str = day_from_query(request.form['text'])
-            coords = get_coordinates(location_str)
+            coords, formatted_address = get_location_data(location_str)
             weather = get_weather(coords, day_str)
         except LocationNotFoundError:
             message_text = ('I didn\'t understand that. Enter something like ' +
@@ -83,16 +83,17 @@ def handle_message():
         except CoordinatesNotFoundError:
             message_text = f'Location “{location_str}” not found.'
         except WeatherNotFoundError:
-            message_text = f'Couldn\'t get weather for {location_str}.'
+            message_text = f'Couldn\'t get weather for {formatted_address}.'
         else:
             summary = weather['summary']
             if day_str == 'today':
                 temperature = round(weather['temperature'])
-                message_text = f'{temperature}°F. {summary}.'
+                message_text = f'{formatted_address} weather: {temperature}°F. {summary}.'
             elif day_str == 'tomorrow':
                 high_temp = round(weather['temperatureMax'])
                 low_temp = round(weather['temperatureMin'])
-                message_text = f'High of {high_temp}°F, low of {low_temp}°F. {summary}'
+                message_text = (f'{formatted_address} weather for tomorrow: ' +
+                                f'high of {high_temp}°F, low of {low_temp}°F. {summary}')
             else:
                 message_text = 'Oops, something went wrong'
     elif request.form['action'] == 'join':
