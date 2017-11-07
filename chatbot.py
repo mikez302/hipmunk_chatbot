@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import re
+from datetime import datetime, timedelta
 
 import requests
 from flask import Flask, jsonify, request
@@ -24,6 +25,10 @@ def location_from_query(query):
     raise LocationNotFoundError()
 
 
+def day_from_query(query):
+    return 'tomorrow' if 'tomorrow' in query.casefold() else 'today'
+
+
 def get_coordinates(location_str):
     response = requests.get(
         'https://maps.googleapis.com/maps/api/geocode/json',
@@ -36,16 +41,29 @@ def get_coordinates(location_str):
     return (coords['lat'], coords['lng'])
 
 
-def get_weather(coordinates):
+def get_weather(coordinates, day_str):
     latitude, longitude = coordinates
     key = app.config['DARK_SKY_API_KEY']
     response = requests.get(f'https://api.darksky.net/forecast/{key}/{latitude},{longitude}')
     weather = response.json()
     try:
-        if 'temperature' in weather['currently'] and 'summary' in weather['currently']:
-            return weather['currently']
+        if day_str == 'today':
+            if 'temperature' in weather['currently'] and 'summary' in weather['currently']:
+                return weather['currently']
+            else:
+                raise WeatherNotFoundError()
+        elif day_str == 'tomorrow':
+            tomorrow = datetime.today() + timedelta(days=1)
+            tomorrow_weather = next(
+                (d for d in weather['daily']['data']
+                 if datetime.fromtimestamp(d['time']).date() == tomorrow.date()),
+                None)
+            if tomorrow_weather:
+                return tomorrow_weather
+            else:
+                raise WeatherNotFoundError()
         else:
-            raise WeatherNotFoundError()
+            raise ValueError('day_str must be \'today\' or \'tomorrow\'')
     except KeyError as exc:
         raise WeatherNotFoundError() from exc
 
@@ -55,8 +73,9 @@ def handle_message():
     if request.form['action'] == 'message':
         try:
             location_str = location_from_query(request.form['text'])
+            day_str = day_from_query(request.form['text'])
             coords = get_coordinates(location_str)
-            current_weather = get_weather(coords)
+            weather = get_weather(coords, day_str)
         except LocationNotFoundError:
             message_text = ('I didn\'t understand that. Enter something like ' +
                             '“what\'s the weather in <Location>” or ' +
@@ -66,9 +85,16 @@ def handle_message():
         except WeatherNotFoundError:
             message_text = f'Couldn\'t get weather for {location_str}.'
         else:
-            temperature = round(current_weather['temperature'])
-            summary = current_weather['summary']
-            message_text = f'{temperature}°F. {summary}.'
+            summary = weather['summary']
+            if day_str == 'today':
+                temperature = round(weather['temperature'])
+                message_text = f'{temperature}°F. {summary}.'
+            elif day_str == 'tomorrow':
+                high_temp = round(weather['temperatureMax'])
+                low_temp = round(weather['temperatureMin'])
+                message_text = f'High of {high_temp}°F, low of {low_temp}°F. {summary}'
+            else:
+                message_text = 'Oops, something went wrong'
     elif request.form['action'] == 'join':
         message_text = (f'Hello, {request.form["name"]}! ' +
                         'Ask me about the weather in your city.')
